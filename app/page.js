@@ -6,6 +6,18 @@ import { supabase } from "../lib/supabase";
 const arrivedFrom =
   typeof window !== "undefined" ? window.location.hash + window.location.search : "";
 
+function toFrench(message) {
+  const m = String(message || "").toLowerCase();
+  if (m.includes("rate limit")) return "Trop d’emails ont été envoyés. Patientez environ une heure, puis réessayez.";
+  if (m.includes("invalid login")) return "Email ou mot de passe incorrect.";
+  if (m.includes("not confirmed")) return "Votre adresse email n’est pas encore confirmée. Cliquez sur le lien reçu par email.";
+  if (m.includes("already registered")) return "Un compte existe déjà avec cet email. Connectez-vous.";
+  if (m.includes("at least")) return "Le mot de passe doit contenir au moins 6 caractères.";
+  if (m.includes("valid email") || m.includes("invalid format")) return "L’adresse email n’est pas valide.";
+  if (m.includes("fetch") || m.includes("network")) return "Problème de connexion. Vérifiez votre réseau et réessayez.";
+  return "Une erreur est survenue. Réessayez dans un instant.";
+}
+
 export default function Home() {
   const router = useRouter();
   const [mode, setMode] = useState("login");
@@ -32,7 +44,7 @@ export default function Home() {
         ? await supabase.auth.signInWithPassword({ email, password })
         : await supabase.auth.signUp({ email, password });
     setBusy(false);
-    if (error) return setError(error.message);
+    if (error) return setError(toFrench(error.message));
     if (data.session) router.push("/dashboard");
     else setInfo("Compte créé. Vérifiez votre boîte mail et cliquez sur le lien de confirmation, puis revenez vous connecter.");
   }
