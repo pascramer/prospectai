@@ -1,7 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../lib/supabase";
+
+const arrivedFrom =
+  typeof window !== "undefined" ? window.location.hash + window.location.search : "";
 
 export default function Home() {
   const router = useRouter();
@@ -10,11 +13,20 @@ export default function Home() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (/error/i.test(arrivedFrom)) {
+      setError("Le lien de confirmation est invalide ou a expiré. Créez à nouveau votre compte.");
+    } else if (/type=signup|access_token|code=/.test(arrivedFrom)) {
+      setNotice("Votre adresse email a bien été confirmée. Vous pouvez maintenant vous connecter.");
+    }
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
-    setError(""); setInfo(""); setBusy(true);
+    setError(""); setInfo(""); setNotice(""); setBusy(true);
     const { data, error } =
       mode === "login"
         ? await supabase.auth.signInWithPassword({ email, password })
@@ -22,7 +34,7 @@ export default function Home() {
     setBusy(false);
     if (error) return setError(error.message);
     if (data.session) router.push("/dashboard");
-    else setInfo("Compte créé. Vérifiez votre boîte mail pour confirmer, puis connectez-vous.");
+    else setInfo("Compte créé. Vérifiez votre boîte mail et cliquez sur le lien de confirmation, puis revenez vous connecter.");
   }
 
   return (
@@ -31,6 +43,7 @@ export default function Home() {
       <p style={{ color: "var(--mu)" }}>
         {mode === "login" ? "Connectez-vous à votre espace." : "Créez votre compte."}
       </p>
+      {notice && <p style={{ color: "var(--ac)", fontWeight: 600 }}>{notice}</p>}
       <form onSubmit={submit} className="card">
         <label>Email</label>
         <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
