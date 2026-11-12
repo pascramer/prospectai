@@ -2,36 +2,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { field } from "./ui";
-
-function draft(p, tone, signature) {
-  const first = (p.contact_name || "").trim().split(" ")[0];
-  const hello = first ? "Bonjour " + first + "," : "Bonjour,";
-  const fact = (p.signal || "").trim().replace(/\.$/, "");
-  const lower = fact.charAt(0).toLowerCase() + fact.slice(1);
-  let body;
-  if (tone === "chaleureux") {
-    body =
-      hello + "\n\nEn découvrant " + p.company + ", j’ai vu que " + lower +
-      ". Cela m’a donné quelques idées que j’aimerais partager avec vous.\n\n" +
-      "Si vous le souhaitez, nous pouvons en parler 15 minutes cette semaine, sans engagement. Cela vous dirait ?\n\n" +
-      "Bien à vous,\n" + signature;
-  } else if (tone === "direct") {
-    body =
-      hello + "\n\n" + p.company + " : " + lower + ".\n\n" +
-      "Nous aidons les entreprises dans cette situation. Un appel de 15 minutes cette semaine ?\n\n" + signature;
-  } else {
-    body =
-      hello + "\n\nJ’ai remarqué ceci chez " + p.company + " : " + lower + ".\n\n" +
-      "Nous accompagnons des entreprises dans cette situation. Seriez-vous disponible pour un échange de 15 minutes cette semaine afin d’en discuter ?\n\n" +
-      "Cordialement,\n" + signature;
-  }
-  return (
-    body +
-    "\n\n—\nVos coordonnées proviennent de sources publiques" +
-    (p.source ? " (" + p.source + ")" : "") +
-    ". Pour ne plus être contacté, répondez « stop »."
-  );
-}
+import { draft } from "./draft";
+import { PendingCard, DoneCard } from "./MessageCard";
 
 export default function Validation() {
   const [campaigns, setCampaigns] = useState([]);
@@ -117,6 +89,10 @@ export default function Validation() {
     load();
   }
 
+  function edit(id, value) {
+    setEdits({ ...edits, [id]: value });
+  }
+
   if (loading) return <div className="empty">Chargement...</div>;
 
   if (prospects.length === 0)
@@ -174,4 +150,31 @@ export default function Validation() {
       )}
 
       <h3>À valider ({pending.length})</h3>
-      {pending.length === 0
+      {pending.length === 0 && (
+        <div className="card empty" style={{ marginBottom: 20 }}>
+          Aucun message à valider pour l’instant.
+        </div>
+      )}
+      {pending.map((m) => (
+        <PendingCard
+          key={m.id}
+          m={m}
+          p={byId[m.prospect_id]}
+          edited={edits[m.id]}
+          onEdit={edit}
+          onUpdate={update}
+          onDiscard={discard}
+        />
+      ))}
+
+      {done.length > 0 && (
+        <>
+          <h3>Déjà traités ({done.length})</h3>
+          {done.map((m) => (
+            <DoneCard key={m.id} m={m} p={byId[m.prospect_id]} onUpdate={update} />
+          ))}
+        </>
+      )}
+    </>
+  );
+}
