@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
-import { P_STATUTS, field } from "./ui";
+import { field } from "./ui";
+import ProspectCard from "./ProspectCard";
 
 export default function Prospects() {
   const [campaigns, setCampaigns] = useState([]);
@@ -55,21 +56,6 @@ export default function Prospects() {
     setEmail("");
     setSignal("");
     setSource("");
-    load();
-  }
-
-  async function setStatus(id, status) {
-    setError("");
-    const { error } = await supabase.from("prospects").update({ status }).eq("id", id);
-    if (error) setError("Le statut n’a pas pu être modifié.");
-    load();
-  }
-
-  async function remove(id) {
-    if (!confirm("Supprimer ce prospect ? Cette action est définitive.")) return;
-    setError("");
-    const { error } = await supabase.from("prospects").delete().eq("id", id);
-    if (error) setError("Le prospect n’a pas pu être supprimé.");
     load();
   }
 
@@ -133,40 +119,7 @@ export default function Prospects() {
       )}
 
       {shown.map((p) => (
-        <div key={p.id} className="card" style={{ marginBottom: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <b style={{ fontSize: 17 }}>{p.company}</b>
-            <span style={{ color: "var(--mu)", fontSize: 13 }}>{names[p.campaign_id]}</span>
-          </div>
-          {(p.contact_name || p.role) && (
-            <p style={{ margin: "6px 0 0" }}>
-              {p.contact_name}
-              {p.contact_name && p.role ? " · " : ""}
-              {p.role}
-            </p>
-          )}
-          {p.email && <p style={{ margin: "2px 0 0", color: "var(--mu)" }}>{p.email}</p>}
-          {p.signal && (
-            <p style={{ margin: "8px 0", borderLeft: "3px solid var(--ac)", paddingLeft: 10 }}>
-              <b>Signal :</b> {p.signal}
-              {p.source && <span style={{ color: "var(--mu)" }}> (source : {p.source})</span>}
-            </p>
-          )}
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <select
-              style={{ ...field, width: "auto", margin: 0, padding: "6px 8px" }}
-              value={p.status}
-              onChange={(e) => setStatus(p.id, e.target.value)}
-            >
-              {P_STATUTS.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-            <button type="button" className="link" onClick={() => remove(p.id)}>
-              Supprimer
-            </button>
-          </div>
-        </div>
+        <ProspectCard key={p.id} p={p} campaignName={names[p.campaign_id]} onChanged={load} />
       ))}
     </>
   );
