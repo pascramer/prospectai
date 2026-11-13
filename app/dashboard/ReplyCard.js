@@ -54,8 +54,7 @@ export default function ReplyCard({ r, p, signature, agency, firstEmail, onCateg
       {p && r.category !== "desinscription" && (
         <div style={{ marginTop: 12 }}>
           <button type="button" onClick={copyPrompt}>
-            {copied ? "Prompt copié !" : "Copier le prompt pour Claude"}
-          </button>
+            {copied ? "Demande copiée !" : "Copier la demande pour l’assistant IA"}          </button>
           <p style={{ margin: "8px 0 0", color: "var(--mu)", fontSize: 13 }}>
             Collez-le dans une nouvelle conversation Claude : vous obtenez 3 réponses adaptées à ce message.
           </p>
