@@ -113,8 +113,7 @@ export default function Replies() {
   return (
     <>
       <div className="card" style={{ marginBottom: 20 }}>
-        <label>Votre agence et votre offre (utilisées dans le prompt pour Claude)</label>
-        <textarea
+        <label>Votre agence et votre offre</label>        <textarea
           style={field}
           rows={3}
           value={agency}
