@@ -6,13 +6,14 @@ import Overview from "./Overview";
 import Campaigns from "./Campaigns";
 import Prospects from "./Prospects";
 import Validation from "./Validation";
+import Replies from "./Replies";
 
 const PAGES = [
   ["Tableau de bord", ""],
   ["Campagnes", ""],
   ["Prospects", ""],
   ["File de validation", ""],
-  ["Réponses", "Aucune réponse reçue."],
+  ["Réponses", ""],
   ["Paramètres", "Les réglages arriveront dans une prochaine étape."],
   ["Facturation", "La facturation sera ajoutée plus tard."],
 ];
@@ -74,6 +75,8 @@ export default function Dashboard() {
           <Prospects />
         ) : current === 3 ? (
           <Validation />
+        ) : current === 4 ? (
+          <Replies />
         ) : (
           <div className="card empty">{PAGES[current][1]}</div>
         )}
