@@ -2,18 +2,28 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
-import Overview from "./Overview";
+import Profile from "./Profile";
 import Campaigns from "./Campaigns";
 import Prospects from "./Prospects";
 import Validation from "./Validation";
 import Replies from "./Replies";
+import Overview from "./Overview";
 
 const PAGES = [
-  ["Tableau de bord", "Votre activité en un coup d’œil, et ce qu’il vous reste à faire."],
-  ["Campagnes", "Une campagne regroupe le type d’entreprises que vous voulez contacter, par exemple celles qui recrutent un profil marketing."],
+  ["Mon activité", "Présentez votre entreprise une seule fois : le site s’en sert pour écrire vos messages."],
+  ["Campagnes", "Une campagne regroupe le type d’entreprises que vous voulez contacter."],
   ["Prospects", "Les entreprises à contacter. Pour chacune, notez pourquoi la contacter (le signal) : le message s’appuie dessus."],
   ["File de validation", "Le site prépare un email pour chaque prospect. Relisez-le, modifiez-le, puis approuvez-le ou rejetez-le."],
   ["Réponses", "Quand un prospect vous répond, collez sa réponse ici pour la classer et préparer votre réponse."],
+  ["Tableau de bord", "Votre activité en un coup d’œil, et ce qu’il vous reste à faire."],
+];
+
+const NEXT = [
+  "Étape suivante : créer une campagne",
+  "Étape suivante : ajouter des prospects",
+  "Étape suivante : préparer les messages",
+  "Étape suivante : enregistrer les réponses",
+  "Voir mon tableau de bord",
 ];
 
 export default function Dashboard() {
@@ -23,18 +33,28 @@ export default function Dashboard() {
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) router.replace("/");
-      else {
-        setUser(data.session.user);
-        setReady(true);
-      }
-    });
+    async function start() {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return router.replace("/");
+      setUser(data.session.user);
+      const p = await supabase.from("business_profile").select("user_id").maybeSingle();
+      if (p.data) setCurrent(5);
+      setReady(true);
+    }
+    start();
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (!session) router.replace("/");
     });
     return () => sub.subscription.unsubscribe();
   }, [router]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [current]);
+
+  function next() {
+    setCurrent(current + 1);
+  }
 
   if (!ready) return <div className="empty">Chargement...</div>;
 
@@ -65,17 +85,30 @@ export default function Dashboard() {
       </nav>
       <main className="main">
         <h1 style={{ marginBottom: 4 }}>{PAGES[current][0]}</h1>
-        <p style={{ margin: "0 0 22px", color: "var(--mu)", maxWidth: 640 }}>{PAGES[current][1]}</p>
+        <p style={{ margin: "0 0 16px", color: "var(--mu)", maxWidth: 640 }}>{PAGES[current][1]}</p>
+        {current < 5 && (
+          <div
+            className="card"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", padding: 14, marginBottom: 20 }}
+          >
+            <span style={{ color: "var(--mu)" }}>Étape {current + 1} sur 5</span>
+            <button type="button" onClick={next}>
+              {NEXT[current]}
+            </button>
+          </div>
+        )}
         {current === 0 ? (
-          <Overview onGo={setCurrent} />
+          <Profile />
         ) : current === 1 ? (
           <Campaigns />
         ) : current === 2 ? (
           <Prospects />
         ) : current === 3 ? (
           <Validation />
-        ) : (
+        ) : current === 4 ? (
           <Replies />
+        ) : (
+          <Overview onGo={setCurrent} />
         )}
       </main>
     </div>
