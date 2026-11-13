@@ -9,13 +9,11 @@ import Validation from "./Validation";
 import Replies from "./Replies";
 
 const PAGES = [
-  ["Tableau de bord", ""],
-  ["Campagnes", ""],
-  ["Prospects", ""],
-  ["File de validation", ""],
-  ["Réponses", ""],
-  ["Paramètres", "Les réglages arriveront dans une prochaine étape."],
-  ["Facturation", "La facturation sera ajoutée plus tard."],
+  ["Tableau de bord", "Votre activité en un coup d’œil, et ce qu’il vous reste à faire."],
+  ["Campagnes", "Une campagne regroupe le type d’entreprises que vous voulez contacter, par exemple celles qui recrutent un profil marketing."],
+  ["Prospects", "Les entreprises à contacter. Pour chacune, notez pourquoi la contacter (le signal) : le message s’appuie dessus."],
+  ["File de validation", "Le site prépare un email pour chaque prospect. Relisez-le, modifiez-le, puis approuvez-le ou rejetez-le."],
+  ["Réponses", "Quand un prospect vous répond, collez sa réponse ici pour la classer et préparer votre réponse."],
 ];
 
 export default function Dashboard() {
@@ -66,7 +64,8 @@ export default function Dashboard() {
         </div>
       </nav>
       <main className="main">
-        <h1>{PAGES[current][0]}</h1>
+        <h1 style={{ marginBottom: 4 }}>{PAGES[current][0]}</h1>
+        <p style={{ margin: "0 0 22px", color: "var(--mu)", maxWidth: 640 }}>{PAGES[current][1]}</p>
         {current === 0 ? (
           <Overview onGo={setCurrent} />
         ) : current === 1 ? (
@@ -75,10 +74,8 @@ export default function Dashboard() {
           <Prospects />
         ) : current === 3 ? (
           <Validation />
-        ) : current === 4 ? (
-          <Replies />
         ) : (
-          <div className="card empty">{PAGES[current][1]}</div>
+          <Replies />
         )}
       </main>
     </div>
