@@ -2,6 +2,7 @@ import { supabase } from "../../lib/supabase";
 
 export const CATEGORIES = {
   interesse: "Intéressé",
+  creneau: "Autre créneau demandé",
   plustard: "Plus tard",
   non: "Pas concerné",
   mauvaise: "Mauvaise personne",
@@ -23,6 +24,7 @@ const RULES = [
   ["auto", /reponse automatique|auto-?reply|out of office|hors du bureau|absent|en conges/],
   ["non", /pas interess|non merci|pas concerne|ne nous interesse pas|ne m'interesse pas|aucun besoin|pas besoin|deja un prestataire|deja une agence/],
   ["mauvaise", /pas la bonne personne|mauvaise personne|contactez plutot|adressez-vous|transmis|n'est plus (dans|chez)|a quitte/],
+  ["creneau", /indisponible|(pas|plus|jamais) (vraiment |trop )?(disponible|dispo|libre)|(impossible|pas possible).{0,20}(lundi|mardi|mercredi|jeudi|vendredi|semaine)/],
   ["plustard", /plus tard|pas le moment|rappelez|recontactez|dans quelques mois|trimestre|prochain|septembre|janvier|rentree/],
   ["interesse", /interess|rendez-vous|rdv|appel|disponible|volontiers|d'accord|\boui\b|plus d'info|envoyez|pourquoi pas/],
 ];
@@ -42,6 +44,12 @@ export function suggestion(category, p, signature) {
     return (
       hello +
       "\n\nMerci pour votre retour ! Je vous propose un échange de 15 minutes : indiquez-moi vos disponibilités cette semaine, ou choisissez un créneau ici : [lien de prise de rendez-vous].\n\nCordialement,\n" +
+      signature
+    );
+  if (category === "creneau")
+    return (
+      hello +
+      "\n\nMerci pour votre réponse, et pas de souci pour ce créneau. Quels jours ou quelles heures vous conviendraient mieux ? Je m’adapte, l’échange ne dure que 15 minutes.\n\nCordialement,\n" +
       signature
     );
   if (category === "plustard")
