@@ -26,6 +26,20 @@ const NEXT = [
   "Voir mon tableau de bord",
 ];
 
+function remember(profile) {
+  try {
+    const clean = {};
+    ["business_name", "activity", "city", "offer", "target", "website", "phone", "booking_link", "signature", "extra"].forEach((k) => {
+      clean[k] = profile[k] || "";
+    });
+    localStorage.setItem("profile", JSON.stringify(clean));
+    localStorage.setItem("signature", clean.signature);
+    const intro = [clean.business_name, clean.activity].filter(Boolean).join(", ");
+    const where = clean.city ? " à " + clean.city : "";
+    localStorage.setItem("agency", (intro + where + ". " + clean.offer).trim());
+  } catch (e) {}
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -37,8 +51,11 @@ export default function Dashboard() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return router.replace("/");
       setUser(data.session.user);
-      const p = await supabase.from("business_profile").select("user_id").maybeSingle();
-      if (p.data) setCurrent(5);
+      const p = await supabase.from("business_profile").select("*").maybeSingle();
+      if (p.data) {
+        remember(p.data);
+        setCurrent(5);
+      }
       setReady(true);
     }
     start();
