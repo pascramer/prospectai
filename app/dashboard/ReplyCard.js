@@ -1,18 +1,22 @@
 "use client";
 import { useState } from "react";
 import { field } from "./ui";
-import { CATEGORIES, suggestion } from "./classify";
+import { CATEGORIES } from "./classify";
+import { buildPrompt } from "./aiPrompt";
 
-export default function ReplyCard({ r, p, signature, onCategory, onDelete }) {
+export default function ReplyCard({ r, p, signature, agency, firstEmail, onCategory, onDelete }) {
   const [copied, setCopied] = useState(false);
-  const text = p ? suggestion(r.category, p, signature) : "";
 
-  async function copy() {
+  async function copyPrompt() {
+    if (!p) return;
+    const text = buildPrompt({ agency, signature, p, firstEmail, reply: r.body });
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (e) {}
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) {
+      alert("La copie a échoué. Essayez avec un autre navigateur.");
+    }
   }
 
   return (
@@ -47,13 +51,14 @@ export default function ReplyCard({ r, p, signature, onCategory, onDelete }) {
           Cette personne a été ajoutée à la liste d’opposition : ne la contactez plus.
         </p>
       )}
-      {text && (
+      {p && r.category !== "desinscription" && (
         <div style={{ marginTop: 12 }}>
-          <b style={{ fontSize: 14 }}>Réponse suggérée</b>
-          <textarea style={field} rows={7} defaultValue={text} key={r.category} />
-          <button type="button" onClick={copy}>
-            {copied ? "Copié !" : "Copier la réponse"}
+          <button type="button" onClick={copyPrompt}>
+            {copied ? "Prompt copié !" : "Copier le prompt pour Claude"}
           </button>
+          <p style={{ margin: "8px 0 0", color: "var(--mu)", fontSize: 13 }}>
+            Collez-le dans une nouvelle conversation Claude : vous obtenez 3 réponses adaptées à ce message.
+          </p>
         </div>
       )}
     </div>
