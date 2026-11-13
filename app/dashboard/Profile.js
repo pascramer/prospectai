@@ -2,130 +2,137 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { field } from "./ui";
+import CityInput, { isCityValid } from "./CityInput";
+import { validPhone, formatPhone, validUrl, fixUrl } from "../../lib/validate";
 
 const EMPTY = {
-  business_name: "",
-  activity: "",
-  city: "",
-  offer: "",
-  target: "",
-  website: "",
-  phone: "",
-  booking_link: "",
-  signature: "",
-  extra: "",
+  business_name: "", activity: "", city: "", offer: "", target: "",
+  website: "", phone: "", booking_link: "", signature: "", extra: "",
 };
 
-function remember(profile) {
+function remember(p) {
   try {
-    localStorage.setItem("profile", JSON.stringify(profile));
-    localStorage.setItem("signature", profile.signature);
-    const intro = [profile.business_name, profile.activity].filter(Boolean).join(", ");
-    const where = profile.city ? " à " + profile.city : "";
-    localStorage.setItem("agency", (intro + where + ". " + profile.offer).trim());
+    localStorage.setItem("profile", JSON.stringify(p));
+    localStorage.setItem("signature", p.signature || "");
+    const intro = [p.business_name, p.activity].filter(Boolean).join(", ");
+    const where = p.city ? " à " + p.city : "";
+    localStorage.setItem("agency", (intro + where + ". " + (p.offer || "")).trim());
   } catch (e) {}
 }
 
-export default function Profile({ onNext }) {
+function check(f) {
+  const e = {};
+  if (!f.business_name.trim()) e.business_name = "Indiquez le nom de votre entreprise.";
+  if (!f.activity.trim()) e.activity = "Indiquez votre métier ou votre activité.";
+  if (!isCityValid(f.city)) {
+    e.city = f.city.trim()
+      ? "Cette ville n’est pas reconnue : choisissez-la dans la liste qui s’affiche."
+      : "Indiquez votre ville.";
+  }
+  if (!f.offer.trim()) e.offer = "Décrivez en une ou deux phrases ce que vous proposez.";
+  if (f.phone.trim() && !validPhone(f.phone)) e.phone = "Ce numéro n’est pas valide. Exemple : 06 12 34 56 78.";
+  ["website", "booking_link"].forEach((k) => {
+    if (f[k].trim() && !validUrl(f[k])) e[k] = "Ce lien n’est pas valide. Exemple : www.monsite.fr";
+  });
+  if (!f.signature.trim()) e.signature = "Indiquez la signature de vos messages.";
+  return e;
+}
+
+function Row({ label, hint, error, children }) {
+  return (
+    <div style={{ marginBottom: 18 }}>
+      <label style={{ display: "block", fontWeight: 600, marginBottom: 4 }}>{label}</label>
+      {hint && <div style={{ fontSize: 13, color: "var(--mu)", marginBottom: 6 }}>{hint}</div>}
+      {children}
+      {error && <div className="err" style={{ marginTop: 4 }}>{error}</div>}
+    </div>
+  );
+}
+
+export default function Profile() {
   const [f, setF] = useState(EMPTY);
-  const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState({});
+  const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState("");
 
   useEffect(() => {
-    async function load() {
-      const { data, error } = await supabase.from("business_profile").select("*").maybeSingle();
-      if (error) setError("Impossible de charger votre profil.");
-      else if (data) {
-        const next = { ...EMPTY };
-        Object.keys(EMPTY).forEach((k) => {
-          next[k] = data[k] || "";
-        });
-        setF(next);
-        remember(next);
-      }
-      setLoading(false);
-    }
-    load();
+    supabase.from("business_profile").select("*").maybeSingle().then((r) => {
+      if (!r.data) return;
+      const d = {};
+      Object.keys(EMPTY).forEach((k) => (d[k] = r.data[k] || ""));
+      setF(d);
+      remember(d);
+    });
   }, []);
 
-  function set(key, value) {
-    setSaved(false);
-    setF({ ...f, [key]: value });
-  }
+  const set = (k) => (e) => {
+    setF({ ...f, [k]: e.target.value });
+    setErrors({ ...errors, [k]: "" });
+  };
+  const inp = (k) => ({ ...field, borderColor: errors[k] ? "#c0392b" : undefined });
 
-  async function save(e) {
-    e.preventDefault();
-    setError("");
-    setBusy(true);
+  async function save(ev) {
+    ev.preventDefault();
+    setMsg("");
+    const e = check(f);
+    setErrors(e);
+    if (Object.keys(e).length) {
+      setMsg("Corrigez les champs en rouge, puis réessayez.");
+      return;
+    }
     const clean = {};
-    Object.keys(EMPTY).forEach((k) => {
-      clean[k] = f[k].trim();
-    });
-    const { error } = await supabase
+    Object.keys(EMPTY).forEach((k) => (clean[k] = f[k].trim()));
+    if (clean.phone) clean.phone = formatPhone(clean.phone);
+    if (clean.website) clean.website = fixUrl(clean.website);
+    if (clean.booking_link) clean.booking_link = fixUrl(clean.booking_link);
+    setBusy(true);
+    const r = await supabase
       .from("business_profile")
       .upsert({ ...clean, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
     setBusy(false);
-    if (error) return setError("Le profil n’a pas pu être enregistré. Réessayez.");
+    if (r.error) {
+      setMsg("Enregistrement impossible : " + r.error.message);
+      return;
+    }
+    setF(clean);
     remember(clean);
-    setSaved(true);
+    setMsg("✓ Votre activité est enregistrée.");
   }
 
-  if (loading) return <div className="empty">Chargement...</div>;
-
   return (
-    <form onSubmit={save} className="card">
-      <h3 style={{ marginTop: 0 }}>Votre activité</h3>
-      <label>Nom de votre entreprise</label>
-      <input value={f.business_name} onChange={(e) => set("business_name", e.target.value)} placeholder="Ex. : Auto-école Martin" required />
-      <label>Votre métier</label>
-      <input value={f.activity} onChange={(e) => set("activity", e.target.value)} placeholder="Ex. : auto-école, agence web, plombier…" required />
-      <label>Ville ou zone d’activité</label>
-      <input value={f.city} onChange={(e) => set("city", e.target.value)} placeholder="Ex. : Lyon et sa périphérie" />
-      <label>Ce que vous proposez</label>
-      <textarea
-        style={field}
-        rows={3}
-        value={f.offer}
-        onChange={(e) => set("offer", e.target.value)}
-        placeholder="Ex. : permis de conduire accéléré, conduite accompagnée, formation pour les entreprises"
-        required
-      />
-      <label>Qui vous voulez contacter</label>
-      <textarea
-        style={field}
-        rows={2}
-        value={f.target}
-        onChange={(e) => set("target", e.target.value)}
-        placeholder="Ex. : entreprises qui recrutent des jeunes de 18 à 25 ans, comités d’entreprise"
-      />
-      <label>Site web</label>
-      <input value={f.website} onChange={(e) => set("website", e.target.value)} placeholder="Ex. : www.autoecole-martin.fr" />
-      <label>Téléphone</label>
-      <input value={f.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Ex. : 04 00 00 00 00" />
-      <label>Lien de prise de rendez-vous</label>
-      <input value={f.booking_link} onChange={(e) => set("booking_link", e.target.value)} placeholder="Ex. : https://calendly.com/…" />
-      <label>Votre signature (prénom, nom, entreprise)</label>
-      <input value={f.signature} onChange={(e) => set("signature", e.target.value)} placeholder="Ex. : Julie Martin – Auto-école Martin" required />
-      <label>Autres informations utiles (tarifs, délais, atouts…)</label>
-      <textarea
-        style={field}
-        rows={3}
-        value={f.extra}
-        onChange={(e) => set("extra", e.target.value)}
-        placeholder="Ex. : 98 % de réussite, financement CPF possible, cours le soir et le samedi"
-      />
-      {error && <p className="err">{error}</p>}
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-        <button disabled={busy}>{busy ? "Enregistrement..." : "Enregistrer"}</button>
-        {saved && <span style={{ color: "var(--ac)" }}>Enregistré.</span>}
-        {saved && onNext && (
-          <button type="button" onClick={onNext}>
-            Étape suivante : créer une campagne
-          </button>
-        )}
-      </div>
+    <form className="card" style={{ maxWidth: 680 }} onSubmit={save} noValidate>
+      <Row label="Nom de l’entreprise *" error={errors.business_name}>
+        <input style={inp("business_name")} value={f.business_name} onChange={set("business_name")} placeholder="Ex. : Auto-école Martin" />
+      </Row>
+      <Row label="Votre métier *" error={errors.activity}>
+        <input style={inp("activity")} value={f.activity} onChange={set("activity")} placeholder="Ex. : auto-école" />
+      </Row>
+      <Row label="Ville *" error={errors.city}>
+        <CityInput value={f.city} invalid={!!errors.city} onChange={(v) => { setF({ ...f, city: v }); setErrors({ ...errors, city: "" }); }} />
+      </Row>
+      <Row label="Ce que vous proposez *" hint="Une ou deux phrases, comme à un nouveau client." error={errors.offer}>
+        <textarea rows={3} style={inp("offer")} value={f.offer} onChange={set("offer")} placeholder="Ex. : permis B accéléré et conduite accompagnée" />
+      </Row>
+      <Row label="Les entreprises que vous voulez contacter" hint="Facultatif.">
+        <textarea rows={2} style={field} value={f.target} onChange={set("target")} placeholder="Ex. : entreprises qui recrutent des jeunes" />
+      </Row>
+      <Row label="Téléphone" hint="Facultatif." error={errors.phone}>
+        <input style={inp("phone")} value={f.phone} onChange={set("phone")} placeholder="06 12 34 56 78" inputMode="tel" />
+      </Row>
+      <Row label="Site internet" hint="Facultatif." error={errors.website}>
+        <input style={inp("website")} value={f.website} onChange={set("website")} placeholder="www.monsite.fr" />
+      </Row>
+      <Row label="Lien pour prendre rendez-vous" hint="Facultatif. Il sera ajouté dans vos messages." error={errors.booking_link}>
+        <input style={inp("booking_link")} value={f.booking_link} onChange={set("booking_link")} placeholder="www.monsite.fr/rendez-vous" />
+      </Row>
+      <Row label="Signature des messages *" error={errors.signature}>
+        <textarea rows={3} style={inp("signature")} value={f.signature} onChange={set("signature")} placeholder={"Cordialement,\nJean Martin\nAuto-école Martin"} />
+      </Row>
+      <Row label="Autre information utile" hint="Facultatif. Horaires, tarifs, points forts...">
+        <textarea rows={2} style={field} value={f.extra} onChange={set("extra")} />
+      </Row>
+      <button type="submit" disabled={busy}>{busy ? "Enregistrement..." : "Enregistrer"}</button>
+      {msg && <p style={{ marginTop: 12, color: msg.startsWith("✓") ? "#2e7d32" : "#c0392b" }}>{msg}</p>}
     </form>
   );
 }
