@@ -56,8 +56,7 @@ export default function ReplyCard({ r, p, signature, agency, firstEmail, onCateg
           <button type="button" onClick={copyPrompt}>
             {copied ? "Demande copiée !" : "Copier la demande pour l’assistant IA"}          </button>
           <p style={{ margin: "8px 0 0", color: "var(--mu)", fontSize: 13 }}>
-            Collez-le dans une nouvelle conversation Claude : vous obtenez 3 réponses adaptées à ce message.
-          </p>
+            Collez-la dans votre assistant IA : vous obtenez 3 réponses adaptées à ce message.          </p>
         </div>
       )}
     </div>
