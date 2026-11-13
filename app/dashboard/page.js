@@ -3,14 +3,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
 import Profile from "./Profile";
+import { remember } from "./ProfileForm";
 import Campaigns from "./Campaigns";
 import Prospects from "./Prospects";
 import Validation from "./Validation";
 import Replies from "./Replies";
 import Overview from "./Overview";
+import { StepsBar, StepFooter, firstTodo } from "./Guide";
 
 const PAGES = [
-  ["Mon activité", "Présentez votre entreprise une seule fois : le site s’en sert pour écrire vos messages."],
+  ["Mon activité", "Votre profil professionnel : le site s’en sert pour écrire vos messages."],
   ["Campagnes", "Une campagne regroupe le type d’entreprises que vous voulez contacter."],
   ["Prospects", "Les entreprises à contacter. Pour chacune, notez pourquoi la contacter (le signal) : le message s’appuie dessus."],
   ["File de validation", "Le site prépare un email pour chaque prospect. Relisez-le, modifiez-le, puis approuvez-le ou rejetez-le."],
@@ -18,43 +20,48 @@ const PAGES = [
   ["Tableau de bord", "Votre activité en un coup d’œil, et ce qu’il vous reste à faire."],
 ];
 
+const LABELS = PAGES.slice(0, 5).map((p) => p[0]);
+
 const NEXT = [
   "Étape suivante : créer une campagne",
   "Étape suivante : ajouter des prospects",
   "Étape suivante : préparer les messages",
   "Étape suivante : enregistrer les réponses",
-  "Voir mon tableau de bord",
+  "Terminer et voir mon tableau de bord",
 ];
-
-function remember(profile) {
-  try {
-    const clean = {};
-    ["business_name", "activity", "city", "offer", "target", "website", "phone", "booking_link", "signature", "extra"].forEach((k) => {
-      clean[k] = profile[k] || "";
-    });
-    localStorage.setItem("profile", JSON.stringify(clean));
-    localStorage.setItem("signature", clean.signature);
-    const intro = [clean.business_name, clean.activity].filter(Boolean).join(", ");
-    const where = clean.city ? " à " + clean.city : "";
-    localStorage.setItem("agency", (intro + where + ". " + clean.offer).trim());
-  } catch (e) {}
-}
 
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
-  const [current, setCurrent] = useState(0);
+  const [current, setCurrent] = useState(5);
+  const [guided, setGuided] = useState(false);
+
+  function finish() {
+    setGuided(false);
+    setCurrent(5);
+    supabase.auth.updateUser({ data: { onboarded: true } });
+  }
 
   useEffect(() => {
     async function start() {
       const { data } = await supabase.auth.getSession();
       if (!data.session) return router.replace("/");
-      setUser(data.session.user);
+      const u = data.session.user;
+      setUser(u);
       const p = await supabase.from("business_profile").select("*").maybeSingle();
-      if (p.data) {
-        remember(p.data);
+      if (p.data) remember(p.data);
+      if (u.user_metadata && u.user_metadata.onboarded) {
         setCurrent(5);
+      } else {
+        const t = await firstTodo();
+        if (t === -1) {
+          supabase.auth.updateUser({ data: { onboarded: true } });
+          setCurrent(5);
+        } else {
+          setGuided(true);
+          setCurrent(t);
+        }
       }
       setReady(true);
     }
@@ -69,11 +76,9 @@ export default function Dashboard() {
     window.scrollTo(0, 0);
   }, [current]);
 
-  function next() {
-    setCurrent(current + 1);
-  }
-
   if (!ready) return <div className="empty">Chargement...</div>;
+
+  const showGuide = guided && current < 5;
 
   return (
     <div className="shell">
@@ -101,19 +106,9 @@ export default function Dashboard() {
         </div>
       </nav>
       <main className="main">
+        {showGuide && <StepsBar current={current} labels={LABELS} />}
         <h1 style={{ marginBottom: 4 }}>{PAGES[current][0]}</h1>
-        <p style={{ margin: "0 0 16px", color: "var(--mu)", maxWidth: 640 }}>{PAGES[current][1]}</p>
-        {current < 5 && (
-          <div
-            className="card"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", padding: 14, marginBottom: 20 }}
-          >
-            <span style={{ color: "var(--mu)" }}>Étape {current + 1} sur 5</span>
-            <button type="button" onClick={next}>
-              {NEXT[current]}
-            </button>
-          </div>
-        )}
+        <p style={{ margin: "0 0 20px", color: "var(--mu)", maxWidth: 640 }}>{PAGES[current][1]}</p>
         {current === 0 ? (
           <Profile />
         ) : current === 1 ? (
@@ -126,6 +121,14 @@ export default function Dashboard() {
           <Replies />
         ) : (
           <Overview onGo={setCurrent} />
+        )}
+        {showGuide && (
+          <StepFooter
+            key={current}
+            step={current}
+            nextLabel={NEXT[current]}
+            onNext={current === 4 ? finish : () => setCurrent(current + 1)}
+          />
         )}
       </main>
     </div>
