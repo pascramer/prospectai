@@ -16,6 +16,16 @@ const EMPTY = {
   extra: "",
 };
 
+function remember(profile) {
+  try {
+    localStorage.setItem("profile", JSON.stringify(profile));
+    localStorage.setItem("signature", profile.signature);
+    const intro = [profile.business_name, profile.activity].filter(Boolean).join(", ");
+    const where = profile.city ? " à " + profile.city : "";
+    localStorage.setItem("agency", (intro + where + ". " + profile.offer).trim());
+  } catch (e) {}
+}
+
 export default function Profile({ onNext }) {
   const [f, setF] = useState(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -33,6 +43,7 @@ export default function Profile({ onNext }) {
           next[k] = data[k] || "";
         });
         setF(next);
+        remember(next);
       }
       setLoading(false);
     }
@@ -48,19 +59,16 @@ export default function Profile({ onNext }) {
     e.preventDefault();
     setError("");
     setBusy(true);
-    const row = { updated_at: new Date().toISOString() };
+    const clean = {};
     Object.keys(EMPTY).forEach((k) => {
-      row[k] = f[k].trim();
+      clean[k] = f[k].trim();
     });
-    const { error } = await supabase.from("business_profile").upsert(row, { onConflict: "user_id" });
+    const { error } = await supabase
+      .from("business_profile")
+      .upsert({ ...clean, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
     setBusy(false);
     if (error) return setError("Le profil n’a pas pu être enregistré. Réessayez.");
-    try {
-      localStorage.setItem("signature", row.signature);
-      const intro = [row.business_name, row.activity].filter(Boolean).join(", ");
-      const where = row.city ? " à " + row.city : "";
-      localStorage.setItem("agency", (intro + where + ". " + row.offer).trim());
-    } catch (e) {}
+    remember(clean);
     setSaved(true);
   }
 
