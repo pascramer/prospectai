@@ -2,12 +2,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { field } from "./ui";
-import { CATEGORIES, classify, applyCategory } from "./classify";
+import { classify, applyCategory } from "./classify";
 import ReplyCard from "./ReplyCard";
 
 export default function Replies() {
   const [prospects, setProspects] = useState([]);
   const [replies, setReplies] = useState([]);
+  const [messages, setMessages] = useState([]);
   const [blocked, setBlocked] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -15,15 +16,18 @@ export default function Replies() {
   const [prospectId, setProspectId] = useState("");
   const [body, setBody] = useState("");
   const [signature, setSignature] = useState("");
+  const [agency, setAgency] = useState("");
 
   async function load() {
     const p = await supabase.from("prospects").select("*").order("created_at", { ascending: false });
     const r = await supabase.from("replies").select("*").order("created_at", { ascending: false });
+    const m = await supabase.from("messages").select("*").order("created_at", { ascending: false });
     const s = await supabase.from("suppressions").select("*").order("created_at", { ascending: false });
-    if (p.error || r.error || s.error) setError("Impossible de charger les réponses.");
+    if (p.error || r.error || m.error || s.error) setError("Impossible de charger les réponses.");
     else {
       setProspects(p.data);
       setReplies(r.data);
+      setMessages(m.data);
       setBlocked(s.data);
       if (!prospectId && p.data.length) setProspectId(p.data[0].id);
     }
@@ -34,12 +38,28 @@ export default function Replies() {
     try {
       const s = localStorage.getItem("signature");
       if (s) setSignature(s);
+      const a = localStorage.getItem("agency");
+      if (a) setAgency(a);
     } catch (e) {}
     load();
   }, []);
 
+  function changeAgency(v) {
+    setAgency(v);
+    try {
+      localStorage.setItem("agency", v);
+    } catch (e) {}
+  }
+
   const sig = signature.trim() || "[Votre prénom] – [Votre agence]";
   const byId = Object.fromEntries(prospects.map((p) => [p.id, p]));
+
+  function firstEmailOf(id) {
+    const mine = messages.filter((m) => m.prospect_id === id);
+    const sent = mine.find((m) => m.status === "approuvé");
+    const any = sent || mine[0];
+    return any ? any.body : "";
+  }
 
   async function add(e) {
     e.preventDefault();
@@ -92,6 +112,20 @@ export default function Replies() {
 
   return (
     <>
+      <div className="card" style={{ marginBottom: 20 }}>
+        <label>Votre agence et votre offre (utilisées dans le prompt pour Claude)</label>
+        <textarea
+          style={field}
+          rows={3}
+          value={agency}
+          onChange={(e) => changeAgency(e.target.value)}
+          placeholder="Ex. : Pixelia, agence web et SEO qui aide les petites entreprises à trouver des clients en ligne."
+        />
+        <p style={{ margin: 0, color: "var(--mu)", fontSize: 13 }}>
+          Enregistré sur cet appareil. Écrivez-le une seule fois.
+        </p>
+      </div>
+
       <form onSubmit={add} className="card" style={{ marginBottom: 20 }}>
         <h3 style={{ marginTop: 0 }}>Enregistrer une réponse reçue</h3>
         <label>Prospect</label>
@@ -109,12 +143,12 @@ export default function Replies() {
           rows={5}
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Ex. : Bonjour, oui volontiers, appelez-moi jeudi."
+          placeholder="Ex. : Bonjour, jeudi je suis disponible entre midi et 15h."
           required
         />
-        <button disabled={busy}>{busy ? "Enregistrement..." : "Enregistrer et classer"}</button>
+        <button disabled={busy}>{busy ? "Enregistrement..." : "Enregistrer la réponse"}</button>
         <p style={{ margin: "10px 0 0", color: "var(--mu)", fontSize: 13 }}>
-          Le classement se fait avec des mots-clés : vérifiez-le, et corrigez-le si besoin dans la liste.
+          Un classement automatique est proposé avec des mots-clés : vérifiez-le et corrigez-le si besoin dans la liste.
         </p>
       </form>
 
@@ -132,6 +166,8 @@ export default function Replies() {
           r={r}
           p={byId[r.prospect_id]}
           signature={sig}
+          agency={agency.trim()}
+          firstEmail={firstEmailOf(r.prospect_id)}
           onCategory={changeCategory}
           onDelete={removeReply}
         />
